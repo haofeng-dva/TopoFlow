@@ -1,0 +1,55 @@
+[general]
+output_dir = "./output"
+temp_dir = "./.temp"
+keep_temp = false
+log_level = "info"
+
+[run_mode]
+default = "interactive"
+auto_pilot = false
+watch_folder = ""
+engine_preset = "ue5_nanite"
+api_port = 8080
+api_webhook = ""
+
+[api_keys]
+# 把 key 填在 config.toml（同目录）里，这个模板文件不含敏感信息
+deepseek = ""
+meshy = ""
+openai = ""
+anthropic = ""
+
+[performance]
+max_workers = 1
+worker_timeout = 3600
+cache_enabled = true
+cache_max_entries = 20
+cache_backend = "file"
+
+[redis]
+host = "127.0.0.1"
+port = 6379
+db = 0
+password = ""
+queue_enabled = false
+cache_enabled = false
+
+[standards]
+engine_target = "ue5"
+face_budget = "medium"
+uv_resolution = 2048
+normal_space = "directx"
+
+[standards.gate_a_topology]
+max_triangle_pct = 5.0
+max_face_density_variance = 0.3
+require_watertight = true
+
+[standards.gate_b_uv]
+min_island_gap_px = 4
+min_first_quadrant_utilization = 0.8
+max_stretch_pct = 3.0
+
+[standards.gate_c_bake]
+normal_color_space = "linear"
+ao_color_space = "srgb"
