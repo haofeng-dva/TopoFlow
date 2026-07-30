@@ -1,0 +1,36 @@
+# TopoFlow
+
+__pycache__/
+*.pyc
+.venv/
+.venv_*/
+venv/
+*.egg-info/
+dist/
+build/
+
+# 输出
+output/
+output_mvp/
+.test-tmp/
+.temp/
+.cache/
+
+# 知识库持久化
+knowledge_base/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 系统
+Thumbs.db
+.DS_Store
+
+# 配置（含 API key，不提交）
+config.toml
+""  
+"# ����/��ʱ"  
+".git-auth/"  
+"tmp/"  

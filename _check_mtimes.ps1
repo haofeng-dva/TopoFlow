@@ -1,0 +1,1 @@
+Get-ChildItem -Path D:\TopoFlow -Recurse -File -Exclude "__pycache__*" | Where-Object { $_.DirectoryName -notmatch "__pycache__" } | Select-Object Name, LastWriteTime, Length | Sort-Object LastWriteTime -Descending | Format-Table -AutoSize
