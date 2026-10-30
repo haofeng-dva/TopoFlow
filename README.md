@@ -49,10 +49,10 @@ src/
 │   ├── stage4_gate_a.py    # 拓扑质检 + TopoStrain + TopoVision
 │   ├── stage5_uv.py        # UV 展开与打包
 │   ├── stage6_gate_b.py    # UV 质检
-│   └── stage10_engine_validate.py # 团结引擎 Gate D 导入验收
 │   ├── stage7_bake.py      # 烘焙贴图
 │   ├── stage8_gate_c.py    # 烘焙质检
-│   └── stage9_pack.py      # 最终打包与报告
+│   ├── stage9_pack.py      # 最终打包与报告
+│   └── stage10_engine_validate.py # 团结引擎 Gate D 导入验收
 ├── qc/
 │   ├── topostrain.py       # TopoStrain 算法
 │   └── topovision.py       # TopoVision 热力图
@@ -111,10 +111,17 @@ python src/main.py --config config.toml serve --host 127.0.0.1 --port 8080
 
 - `GET /health`：健康检查。
 - `GET /api/v1/presets`：获取引擎预设。
+- `GET /api/v1/tools`：工具链状态（Blender / 团结引擎 / UV 后端 / Meshy）。
 - `POST /api/v1/tasks`：上传已有 3D 模型，后台执行 MVP 管线。
 - `GET /api/v1/tasks/{task_id}`：查询任务状态。
+- `GET /api/v1/tasks`：列出任务。
+- `POST /api/v1/tasks/{task_id}/cancel`：取消任务。
 - `GET /api/v1/tasks/{task_id}/result`：下载任务 JSON 报告。
+- `GET /api/v1/tasks/{task_id}/report`：获取报告完整内容（含 Gate 指标与热力图相对路径）。
+- `GET /api/v1/tasks/{task_id}/file?rel=<path>`：获取任务产物（热力图 OBJ、烘焙贴图、资产），带路径穿越防护。
 - `POST /api/v1/validate`：上传模型并同步执行 Stage 1 + Gate A。
+
+服务启动后浏览器访问 `http://127.0.0.1:8080/` 即为内置 Web 控制台（`src/api/static/`，零构建静态前端）：提交任务、轮询进度、四 Gate 指标卡片、TopoStrain 评分、TopoVision 三维热力图（three.js 本地渲染，可拖拽旋转）、烘焙贴图预览与产物下载，全部离线可用。
 
 API 本身不要求外部模型 Key。没有 Key 时 Stage 1 使用规则策略；配置 DeepSeek/OpenAI/Anthropic Key 后可启用对应智能策略。任务状态保存在 SQLite 中，服务重启时会把未完成任务标记为 `interrupted`；Redis 队列后端也已实现，可通过配置启用。
 
