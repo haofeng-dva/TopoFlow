@@ -5,6 +5,9 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+    env:
+      # GitHub Windows runner 控制台为 cp1252，中文 print 会触发 UnicodeEncodeError；强制 UTF-8 模式
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

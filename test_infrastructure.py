@@ -105,6 +105,7 @@ class InfrastructureTests(unittest.TestCase):
         queue.ack(queue.pop()["task_id"])
         self.assertEqual(queue.size(), 0)
 
+    @unittest.skipUnless(find_blender(), "Blender 未安装（CI 环境跳过）")
     def test_blender_is_discoverable(self):
         self.assertTrue(find_blender())
 
