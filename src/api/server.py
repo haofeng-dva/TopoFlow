@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -182,6 +183,90 @@ def create_app(config: Optional[Config] = None):
     def health():
         return {"status": "ok", "service": "topoflow"}
 
+    @app.get("/api/v1/tools")
+    def tools():
+        """工具链状态（供前端状态徽章展示）。"""
+        from src.tools.blender import find_blender
+        from src.tools.tuanjie import find_tuanjie
+        from src.tools.uv_packers import detect_uvpackmaster
+
+        blender = find_blender(app.state.config.blender_path)
+        tuanjie = find_tuanjie(app.state.config.tuanjie_path)
+        # 短超时探测：该端点服务于前端首屏状态徽章，不允许长时间阻塞
+        uv = detect_uvpackmaster(blender or "", 8) if blender else {"available": False}
+        return {
+            "blender": blender or None,
+            "tuanjie": tuanjie or None,
+            "uv_backend": "UVPackmaster 4" if uv.get("available") else "Blender Native",
+            "meshy": "ready" if app.state.config.meshy_key else "no_key",
+        }
+
+    @app.get("/api/v1/tasks/{task_id}/report")
+    def task_report(task_id: str):
+        """返回任务 report.json 的完整内容（供前端渲染 Gate 指标与热力图）。"""
+        task = app.state.task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        result = task.get("result") or {}
+        report_path = result.get("report_path")
+        if not report_path or not Path(report_path).is_file():
+            raise HTTPException(status_code=409, detail="任务尚未生成报告")
+        data = json.loads(Path(report_path).read_text(encoding="utf-8"))
+        # 统一路径基准：output_files 原为相对报告目录的路径，heatmap_path 为绝对路径；
+        # 二者统一转换为相对运行目录（报告目录上一级）的路径，供前端经 /file 端点取回
+        asset_dir = Path(report_path).resolve().parent
+        run_dir = asset_dir.parent
+
+        def to_run_rel(p) -> Optional[str]:
+            try:
+                return str(Path(p).resolve().relative_to(run_dir)).replace("\\", "/")
+            except (ValueError, TypeError):
+                return None
+
+        heat = (data.get("quality_reports", {}).get("gate_a_topology", {}) or {}).get("heatmap_path")
+        if heat:
+            data["quality_reports"]["gate_a_topology"]["heatmap_path"] = to_run_rel(heat)
+        files = data.get("output_files") or []
+        data["output_files"] = [
+            rel for rel in (to_run_rel(asset_dir / f) for f in files) if rel
+        ]
+        return data
+
+    @app.get("/api/v1/tasks/{task_id}/file")
+    def task_file(task_id: str, rel: str):
+        """返回任务产物文件（报告、热力图 OBJ、烘焙贴图等）。
+
+        根目录取报告目录的上一级（运行目录），以覆盖 .work/ 下的热力图等
+        兄弟目录；安全校验：解析后的绝对路径必须仍位于运行目录之内，
+        拒绝任何路径穿越。
+        """
+        task = app.state.task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        result = task.get("result") or {}
+        report_path = result.get("report_path")
+        if not report_path:
+            raise HTTPException(status_code=409, detail="任务尚未生成报告")
+        run_dir = Path(report_path).resolve().parent.parent
+        target = (run_dir / rel).resolve()
+        if not str(target).startswith(str(run_dir)):
+            raise HTTPException(status_code=400, detail="非法路径")
+        if not target.is_file():
+            raise HTTPException(status_code=404, detail="文件不存在")
+        suffix = target.suffix.lower()
+        media = {
+            ".json": "application/json",
+            ".obj": "text/plain",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".glb": "model/gltf-binary",
+            ".gltf": "model/gltf+json",
+            ".fbx": "application/octet-stream",
+            ".zip": "application/zip",
+        }.get(suffix, "application/octet-stream")
+        return FileResponse(str(target), filename=target.name, media_type=media)
+
+
     @app.get("/api/v1/presets")
     def presets():
         return {"presets": PRESETS}
@@ -205,7 +290,7 @@ def create_app(config: Optional[Config] = None):
         _save_upload(file, source)
         task = app.state.task_store.create(
             task_id,
-            {"filename": file.filename, "preset": preset, "full": full, "progress": 0, "stage": "queued", "result": None, "error": None},
+            {"filename": file.filename, "preset": preset, "full": full, "progress": 0, "stage": "queued", "result": None, "error": None, "created_at": datetime.now().isoformat(timespec="seconds")},
         )
         app.state.task_queue.push({
             "task_id": task_id, "source_path": str(source), "preset": preset,
@@ -259,6 +344,13 @@ def create_app(config: Optional[Config] = None):
             return inspect_model(str(source), str(report_path), app.state.config)
         except (FileNotFoundError, ValueError, RuntimeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Web 前端：静态文件挂载（须在全部 API 路由注册之后，避免吞掉 /api/*）
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.is_dir():
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="frontend")
 
     return app
 
