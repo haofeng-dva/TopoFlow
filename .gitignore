@@ -30,7 +30,8 @@ Thumbs.db
 
 # 配置（含 API key，不提交）
 config.toml
-""  
-"# ����/��ʱ"  
-".git-auth/"  
-"tmp/"  
+
+# 系统临时
+$null
+.git-auth/
+tmp/
